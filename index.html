@@ -21,7 +21,7 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    perspective: 1600px; /* more depth */
+    perspective: 1600px;
   }
 
   .line {
@@ -29,7 +29,7 @@
     top: 50%;
     left: 50%;
     transform: translateX(-50%);
-    height: 2px;
+    height: 3px;
     background: #fff;
     width: 0;
     z-index: 5;
@@ -50,8 +50,7 @@
     font-size: 2rem;
     overflow: hidden;
     z-index: 1;
-    transform-origin: top center; /* hinge effect */
-    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+    transform-origin: top center;
     transform-style: preserve-3d;
     box-shadow: 0 20px 40px rgba(0,0,0,0.4);
     border-radius: 3px;
@@ -62,6 +61,7 @@
     z-index: 10;
     pointer-events: none;
     font-size: 1rem;
+    padding: 20px;
   }
 </style>
 </head>
@@ -80,7 +80,7 @@ gsap.registerPlugin(ScrollTrigger);
 const line = document.getElementById("line");
 const banner = document.getElementById("banner");
 
-// Main scroll animation
+// === Scroll animation ===
 const tl = gsap.timeline({
   scrollTrigger: {
     trigger: ".container",
@@ -94,56 +94,57 @@ const tl = gsap.timeline({
 tl.to(line, { width: 1500, ease: "power2.out" }, 0)
   .to(banner, { height: 500, ease: "power2.out" }, 0.5);
 
-// === Natural floating animation ===
+// === Natural floating ===
 
-// Gentle hinge swing like paper rising/falling
-gsap.to(banner, {
-  rotationX: -8,
-  duration: 3,
-  yoyo: true,
-  repeat: -1,
-  ease: "sine.inOut"
+// Swing forward & backward (balanced)
+gsap.fromTo(banner, 
+  { rotationX: -8 }, 
+  { rotationX: 8, duration: 3.2, yoyo: true, repeat: -1, ease: "sine.inOut" }
+);
+
+gsap.to(banner, { rotationY: 3, duration: 4, yoyo: true, repeat: -1, ease: "sine.inOut" });
+gsap.to(banner, { y: -20, duration: 3.5, yoyo: true, repeat: -1, ease: "sine.inOut" });
+gsap.to(banner, { 
+  scaleX: 1.015, 
+  scaleY: 1.01, 
+  transformOrigin: "center top", 
+  repeat: -1, 
+  yoyo: true, 
+  duration: 4, 
+  ease: "sine.inOut" 
 });
 
-// Slight side sway
-gsap.to(banner, {
-  rotationY: 3,
-  duration: 4,
-  yoyo: true,
-  repeat: -1,
-  ease: "sine.inOut"
-});
+// === Realistic fluttering ===
+function randomFlutter() {
+  gsap.to(banner, {
+    keyframes: [
+      { 
+        clipPath: `polygon(0% 0%, 100% 0%, ${98 + gsap.utils.random(-3,3)}% 100%, ${gsap.utils.random(0,3)}% 100%)`,
+        duration: gsap.utils.random(0.6,1.2)
+      },
+      { 
+        clipPath: `polygon(0% 0%, 100% 0%, ${97 + gsap.utils.random(-3,3)}% 100%, ${gsap.utils.random(0,4)}% 100%)`,
+        duration: gsap.utils.random(0.6,1.2)
+      }
+    ],
+    ease: "sine.inOut",
+    onComplete: randomFlutter,
+    repeatRefresh: true
+  });
+}
 
-// Vertical bobbing
-gsap.to(banner, {
-  y: -20,
-  duration: 3.5,
-  yoyo: true,
-  repeat: -1,
-  ease: "sine.inOut"
-});
+// Start flutter loop
+randomFlutter();
 
-// Edges flutter irregularly (bottom edge only!)
+// Small jitter (like wind gusts)
 gsap.to(banner, {
-  keyframes: [
-    { clipPath: "polygon(0% 0%, 100% 0%, 98% 100%, 0% 99%)", duration: 1.6 },
-    { clipPath: "polygon(0% 0%, 100% 0%, 100% 98%, 2% 100%)", duration: 1.8 },
-    { clipPath: "polygon(0% 0%, 100% 0%, 97% 99%, 3% 100%)", duration: 1.4 },
-  ],
-  repeat: -1,
+  skewX: gsap.utils.random(-1,1),
+  skewY: gsap.utils.random(-0.5,0.5),
+  duration: 0.8,
   yoyo: true,
-  ease: "sine.inOut"
-});
-
-// Slight breathing scale
-gsap.to(banner, {
-  scaleX: 1.015,
-  scaleY: 1.01,
-  transformOrigin: "center top",
   repeat: -1,
-  yoyo: true,
-  duration: 4,
-  ease: "sine.inOut"
+  ease: "sine.inOut",
+  repeatRefresh: true
 });
 </script>
 
