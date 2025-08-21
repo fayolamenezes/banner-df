@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Flowing Banner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+<style>
+  body {
+    margin: 0;
+    height: 400vh;
+    background: #000;
+    font-family: Arial, sans-serif;
+    overflow-x: hidden;
+  }
+
+  .container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+
+  .line {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 2px;
+    background: #fff;
+    width: 0;
+    z-index: 5;
+  }
+
+  .banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    width: 700px;
+    height: 0;
+    background: #fff;
+    color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    overflow: hidden;
+    z-index: 1;
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  }
+
+  .banner-content {
+    position: relative;
+    z-index: 10;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="line" id="line"></div>
+  <div class="banner" id="banner">
+    <div class="banner-content">WELCOME TO THE SHOW</div>
+  </div>
+</div>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+// Elements
+const line = document.getElementById("line");
+const banner = document.getElementById("banner");
+
+// Scroll-triggered timeline
+const tl = gsap.timeline({
+  scrollTrigger: {
+    trigger: ".container",
+    start: "top top",
+    end: "+=700",
+    scrub: true,
+    pin: true
+  }
+});
+
+// Line grows
+tl.to(line, { width: 1500, ease: "power2.out" }, 0)
+  // Banner unrolls
+  .to(banner, { height: 500, ease: "power2.out" }, 0.5);
+
+// Create realistic flutter using clip-path
+gsap.to(banner, {
+  clipPath: [
+    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
+    "polygon(0% 5%  , 100% 0%, 100% 95%, 0% 100%)",
+    "polygon(0% 0%, 100% 5%, 100% 100%, 0% 95%)",
+    "polygon(0% 2%, 100% 0%, 100% 98%, 0% 100%)"
+  ],
+  duration: 1.8,
+  repeat: -1,
+  yoyo: true,
+  ease: "sine.inOut"
+});
+
+// Floating motion to simulate wind
+gsap.to(banner, {
+  y: -15,
+  repeat: -1,
+  yoyo: true,
+  duration: 2.2,
+  ease: "sine.inOut"
+});
+
+// Subtle rotation oscillation
+gsap.to(banner, {
+  rotation: 3,
+  repeat: -1,
+  yoyo: true,
+  duration: 2.5,
+  ease: "sine.inOut"
+});
+
+// Skew for extra flutter realism
+gsap.to(banner, {
+  skewX: 2,
+  repeat: -1,
+  yoyo: true,
+  duration: 2,
+  ease: "sine.inOut"
+});
+
+// Curling edge effect using scaleX/scaleY with transform origin
+gsap.to(banner, {
+  scaleX: 1.02,
+  scaleY: 1.01,
+  transformOrigin: "center top",
+  repeat: -1,
+  yoyo: true,
+  duration: 2,
+  ease: "sine.inOut"
+});
+</script>
+
+</body>
+</html>
