@@ -3,149 +3,122 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Realistic Floating Banner</title>
+<title>WebGL Banner Scroll Unroll</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
 <style>
-  body {
-    margin: 0;
-    height: 400vh;
-    background: #000;
-    font-family: Arial, sans-serif;
-    overflow-x: hidden;
-  }
-
-  .container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    perspective: 1600px;
-  }
-
-  .line {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translateX(-50%);
-    height: 3px;
-    background: #fff;
-    width: 0;
-    z-index: 5;
-  }
-
-  .banner {
-    position: absolute;
-    top: calc(50% + 2px);
-    left: 50%;
-    transform: translateX(-50%) translateY(0);
-    width: 700px;
-    height: 0;
-    background: #fff;
-    color: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    overflow: hidden;
-    z-index: 1;
-    transform-origin: top center;
-    transform-style: preserve-3d;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-    border-radius: 3px;
-  }
-
-  .banner-content {
-    position: relative;
-    z-index: 10;
-    pointer-events: none;
-    font-size: 1rem;
-    padding: 20px;
-  }
+  body { margin:0; height:400vh; background:#000; overflow-x:hidden; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="line" id="line"></div>
-  <div class="banner" id="banner">
-    <div class="banner-content">“Doctorfizz bridges the gap between powerful SEO tools and everyday marketers.” <br> — Founder, SERPzilla</div>
-  </div>
-</div>
-
 <script>
-gsap.registerPlugin(ScrollTrigger);
+let scene, camera, renderer, clock;
+let line, bannerContainer, banner;
 
-const line = document.getElementById("line");
-const banner = document.getElementById("banner");
+init();
+animate();
 
-// === Scroll animation ===
-const tl = gsap.timeline({
-  scrollTrigger: {
-    trigger: ".container",
-    start: "top top",
-    end: "+=700",
-    scrub: true,
-    pin: true
-  }
-});
+function init() {
+    // Scene & camera
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 2, 8);
 
-tl.to(line, { width: 1500, ease: "power2.out" }, 0)
-  .to(banner, { height: 500, ease: "power2.out" }, 0.5);
+    // Renderer
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-// === Natural floating ===
+    // Lights
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(2,4,5);
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0x404040));
 
-// Swing forward & backward (balanced)
-gsap.fromTo(banner, 
-  { rotationX: -8 }, 
-  { rotationX: 8, duration: 3.2, yoyo: true, repeat: -1, ease: "sine.inOut" }
-);
+    // Line (rod) spanning viewport width
+    const rodGeo = new THREE.BoxGeometry( window.innerWidth / window.innerHeight * 6, 0.05, 0.05 );
+    const rodMat = new THREE.MeshBasicMaterial({color: 0xffffff});
+    line = new THREE.Mesh(rodGeo, rodMat);
+    line.position.set(0, 2, 0);
+    line.scale.x = 0; // grow with scroll
+    scene.add(line);
 
-gsap.to(banner, { rotationY: 3, duration: 4, yoyo: true, repeat: -1, ease: "sine.inOut" });
-gsap.to(banner, { y: -20, duration: 3.5, yoyo: true, repeat: -1, ease: "sine.inOut" });
-gsap.to(banner, { 
-  scaleX: 1.015, 
-  scaleY: 1.01, 
-  transformOrigin: "center top", 
-  repeat: -1, 
-  yoyo: true, 
-  duration: 4, 
-  ease: "sine.inOut" 
-});
+    // Banner parent container to set pivot at top edge
+    bannerContainer = new THREE.Object3D();
+    bannerContainer.position.set(0, 2, 0); // pin top edge at line
+    scene.add(bannerContainer);
 
-// === Realistic fluttering ===
-function randomFlutter() {
-  gsap.to(banner, {
-    keyframes: [
-      { 
-        clipPath: `polygon(0% 0%, 100% 0%, ${98 + gsap.utils.random(-3,3)}% 100%, ${gsap.utils.random(0,3)}% 100%)`,
-        duration: gsap.utils.random(0.6,1.2)
-      },
-      { 
-        clipPath: `polygon(0% 0%, 100% 0%, ${97 + gsap.utils.random(-3,3)}% 100%, ${gsap.utils.random(0,4)}% 100%)`,
-        duration: gsap.utils.random(0.6,1.2)
-      }
-    ],
-    ease: "sine.inOut",
-    onComplete: randomFlutter,
-    repeatRefresh: true
-  });
+    // Banner (scroll plane)
+    const bannerGeo = new THREE.PlaneGeometry(9, 5, 40, 20);
+    const bannerMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        side: THREE.DoubleSide
+    });
+    banner = new THREE.Mesh(bannerGeo, bannerMat);
+    banner.position.set(0, -1.5, 0); // top edge pinned at pivot
+    bannerContainer.add(banner);
+
+    bannerContainer.scale.y = 0; // start "rolled up"
+
+    clock = new THREE.Clock();
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Resize line geometry to match viewport
+        line.geometry.dispose();
+        line.geometry = new THREE.BoxGeometry( window.innerWidth / window.innerHeight * 6, 0.05, 0.05 );
+    });
+
+    // === ScrollTrigger animation ===
+    gsap.registerPlugin(ScrollTrigger);
+    const tl = gsap.timeline({
+        scrollTrigger: {
+            trigger: document.body,
+            start: "top top",
+            end: "+=700",
+            scrub: true,
+            pin: true
+        }
+    });
+
+    // Grow the line first across viewport
+    tl.to(line.scale, { x: 1, ease: "power2.out" }, 0)
+      // Then unroll the banner downward
+      .to(bannerContainer.scale, { y: 1, ease: "power2.out" }, 0.5);
 }
 
-// Start flutter loop
-randomFlutter();
+// Animate banner fluttering
+function updateBanner() {
+    const time = clock.getElapsedTime();
+    const pos = banner.geometry.attributes.position;
+    for(let i=0; i<pos.count; i++){
+        let x = pos.getX(i);
+        let y = pos.getY(i);
 
-// Small jitter (like wind gusts)
-gsap.to(banner, {
-  skewX: gsap.utils.random(-1,1),
-  skewY: gsap.utils.random(-0.5,0.5),
-  duration: 0.8,
-  yoyo: true,
-  repeat: -1,
-  ease: "sine.inOut",
-  repeatRefresh: true
-});
+        // Only wave below top edge
+        if(y < 1.49){
+            let wave = Math.sin(x*2 + time*2)*0.1 + Math.sin(y*3 + time*1.5)*0.1;
+            pos.setZ(i, wave);
+        } else {
+            pos.setZ(i, 0);
+        }
+    }
+    pos.needsUpdate = true;
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    updateBanner();
+    renderer.render(scene, camera);
+}
 </script>
 
 </body>
