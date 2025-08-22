@@ -29,40 +29,33 @@ function init() {
 
     renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.localClippingEnabled = true; // ✅ allow clipping
+    renderer.localClippingEnabled = true;
     document.body.appendChild(renderer.domElement);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-    dirLight.position.set(2,4,5);
-    scene.add(dirLight);
-    scene.add(new THREE.AmbientLight(0x404040));
 
     // --- Rod ---
     const rodGeo = new THREE.BoxGeometry(window.innerWidth / window.innerHeight * 8, 0.05, 0.05);
     const rodMat = new THREE.MeshBasicMaterial({color: 0xffffff});
     rod = new THREE.Mesh(rodGeo, rodMat);
     rod.position.set(0, 4, 0);
-    rod.scale.x = 0; // collapsed initially
+    rod.scale.x = 0; 
     scene.add(rod);
 
     // --- Banner ---
     const bannerHeight = 4;
-    const bannerWidth = 10;
-    const bannerGeo = new THREE.PlaneGeometry(bannerWidth, bannerHeight, 40, 20);
+    const bannerWidth  = 10;
+    const bannerGeo = new THREE.PlaneGeometry(bannerWidth, bannerHeight, 100, 50); // finer mesh
 
-    // ✅ clipping plane: hide everything above y = 4 (rod top)
     const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 4);
 
+    // ✅ Pure white, ignores lights, no shading
     const bannerMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         side: THREE.DoubleSide,
         clippingPlanes: [clipPlane],
-        clipShadows: true
+        toneMapped: false
     });
 
     banner = new THREE.Mesh(bannerGeo, bannerMat);
-
-    // ✅ Start fully above rod (extra offset so it's completely invisible)
     banner.position.set(0, 4 + bannerHeight, 0);
     scene.add(banner);
 
@@ -76,10 +69,8 @@ function init() {
         rod.geometry = new THREE.BoxGeometry(window.innerWidth / window.innerHeight * 8, 0.05, 0.05);
     });
 
-    // Scroll height
     document.body.style.height = `${window.innerHeight + bannerHeight*200}px`;
 
-    // --- GSAP ScrollTrigger ---
     gsap.registerPlugin(ScrollTrigger);
 
     const tl = gsap.timeline({
@@ -92,32 +83,53 @@ function init() {
         }
     });
 
-    // Rod extends first, then banner slides down, retracts cleanly on reverse
     tl.to(rod.scale, { x: 1, ease: "power2.out" }, 0)
       .fromTo(banner.position, 
-        { y: 4 + bannerHeight }, // hidden above rod
-        { y: 4 - bannerHeight/2, ease: "power2.out" }, // slides down fully
+        { y: 4 + bannerHeight }, 
+        { y: 4 - bannerHeight/2, ease: "power2.out" }, 
         0.5
       );
 }
 
-// --- Banner flutter ---
+// --- Banner flutter (wind pushes from center, stronger + faster) ---
 function updateBanner() {
     const time = clock.getElapsedTime();
-    const pos = banner.geometry.attributes.position;
-    const h = banner.geometry.parameters.height;
+    const geo = banner.geometry;
+    const pos = geo.attributes.position;
 
-    for(let i=0; i<pos.count; i++){
-        let x = pos.getX(i);
-        let y = pos.getY(i);
-        // Only flutter below top edge
-        if(y < h/2 - 0.01){
-            let wave = Math.sin(x*2 + time*2)*0.1 + Math.sin(y*3 + time*1.5)*0.1;
-            pos.setZ(i, wave);
-        } else {
+    const h = geo.parameters.height;
+    const w = geo.parameters.width;
+
+    // Stronger + faster gust
+    const gust = Math.sin(time * 1.5) * 0.3;  // was 1.5 * 0.35
+
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+
+        // keep top pinned to rod
+        if (y >= h/2 - 0.01) {
             pos.setZ(i, 0);
+            continue;
         }
+
+        // normalized distance from center
+        const distX = x / (w/2);
+        const distY = y / (h/2);
+        const dist = Math.sqrt(distX * distX + distY * distY);
+
+        // central bulge: stronger push
+        const bulge = gust * (1 - dist);
+
+        // amplified natural ripples
+        const wave =
+            Math.sin(x * 1.8 + time * 2.5) * 0.12 +
+            Math.sin(y * 1.0 + time * 2.0) * 0.1 +
+            Math.sin((x * 0.6 + y * 0.4) + time * 3.5) * 0.07;
+
+        pos.setZ(i, bulge + wave);
     }
+
     pos.needsUpdate = true;
 }
 
