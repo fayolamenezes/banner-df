@@ -43,13 +43,56 @@ function init() {
     // --- Banner ---
     const bannerHeight = 4;
     const bannerWidth  = 10;
-    const bannerGeo = new THREE.PlaneGeometry(bannerWidth, bannerHeight, 100, 50); // finer mesh
+    const bannerGeo = new THREE.PlaneGeometry(bannerWidth, bannerHeight, 100, 50); 
 
     const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 4);
 
-    // ✅ Pure white, ignores lights, no shading
+    // ✅ High-resolution canvas for sharp text
+    const textCanvas = document.createElement('canvas');
+    textCanvas.width = 4096;   // double resolution
+    textCanvas.height = 2048;
+    const ctx = textCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false; // avoid extra blur
+
+    // White background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
+
+    // --- Draw logo placeholders ---
+    ctx.fillStyle = "#ccc";
+    ctx.fillRect(1800, 200, 500, 260);  // Logo 1 top
+    ctx.fillRect(1200, 600, 500, 260);  // Logo 2 left
+    ctx.fillRect(2400, 600, 500, 260);  // Logo 3 right
+
+    ctx.fillStyle = "#666";
+    ctx.font = "bold 100px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("LOGO 1", 2050, 330);
+    ctx.fillText("LOGO 2", 1450, 730);
+    ctx.fillText("LOGO 3", 2650, 730);
+
+    // --- Draw testimonial text with wrapping ---
+    ctx.fillStyle = "#000000";
+    ctx.font = "80px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+
+    const quote = '"DOCTORFIZZ BRIDGES THE GAP BETWEEN POWERFUL SEO TOOLS AND EVERYDAY MARKETERS."';
+    wrapText(ctx, quote, textCanvas.width/2, 1100, 3200, 100);
+
+    ctx.font = "bold 90px Arial";
+    ctx.fillText("— FOUNDER, SERPZILLA", textCanvas.width/2, 1400);
+
+    // --- Texture from canvas ---
+    const bannerTexture = new THREE.CanvasTexture(textCanvas);
+    bannerTexture.needsUpdate = true;
+    bannerTexture.minFilter = THREE.LinearFilter;
+    bannerTexture.magFilter = THREE.NearestFilter;
+    bannerTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
     const bannerMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
+        map: bannerTexture,
         side: THREE.DoubleSide,
         clippingPlanes: [clipPlane],
         toneMapped: false
@@ -91,7 +134,26 @@ function init() {
       );
 }
 
-// --- Banner flutter (wind pushes from center, stronger + faster) ---
+// ✅ Text wrapping helper
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n] + ' ';
+            y += lineHeight;
+        } else {
+            line = testLine;
+        }
+    }
+    ctx.fillText(line, x, y);
+}
+
+// --- Banner flutter ---
 function updateBanner() {
     const time = clock.getElapsedTime();
     const geo = banner.geometry;
@@ -100,28 +162,23 @@ function updateBanner() {
     const h = geo.parameters.height;
     const w = geo.parameters.width;
 
-    // Stronger + faster gust
-    const gust = Math.sin(time * 1.5) * 0.3;  // was 1.5 * 0.35
+    const gust = Math.sin(time * 1.5) * 0.3;
 
     for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
         const y = pos.getY(i);
 
-        // keep top pinned to rod
         if (y >= h/2 - 0.01) {
             pos.setZ(i, 0);
             continue;
         }
 
-        // normalized distance from center
         const distX = x / (w/2);
         const distY = y / (h/2);
         const dist = Math.sqrt(distX * distX + distY * distY);
 
-        // central bulge: stronger push
         const bulge = gust * (1 - dist);
 
-        // amplified natural ripples
         const wave =
             Math.sin(x * 1.8 + time * 2.5) * 0.12 +
             Math.sin(y * 1.0 + time * 2.0) * 0.1 +
