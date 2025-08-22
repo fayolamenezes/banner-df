@@ -62,8 +62,8 @@ function init() {
 
     banner = new THREE.Mesh(bannerGeo, bannerMat);
 
-    // Start fully above rod
-    banner.position.set(0, 4 + bannerHeight/2, 0);
+    // ✅ Start fully above rod (extra offset so it's completely invisible)
+    banner.position.set(0, 4 + bannerHeight, 0);
     scene.add(banner);
 
     clock = new THREE.Clock();
@@ -92,12 +92,13 @@ function init() {
         }
     });
 
-    // Rod extends first, then banner slides down
+    // Rod extends first, then banner slides down, retracts cleanly on reverse
     tl.to(rod.scale, { x: 1, ease: "power2.out" }, 0)
-      .to(banner.position, { 
-            y: 4 - bannerHeight/2, // slides down below the rod
-            ease: "power2.out"
-        }, 0.5);
+      .fromTo(banner.position, 
+        { y: 4 + bannerHeight }, // hidden above rod
+        { y: 4 - bannerHeight/2, ease: "power2.out" }, // slides down fully
+        0.5
+      );
 }
 
 // --- Banner flutter ---
